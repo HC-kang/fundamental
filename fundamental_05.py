@@ -258,6 +258,9 @@ ax.grid()
 # 차원축소(1) - PCA
 ###
 # 1. 데이터 개요
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
         # 차원축소 예제 - 유방암 데이터셋
@@ -316,14 +319,13 @@ def plot_decision_boundary(X, clf, ax):
     Z = Z.reshape(xx.shape)
     ax.contour(xx, yy, Z, cmap = 'Blues')
 
-# PCA를 적용한 train dat의 classifier 훈련 : classifier 로 SVM을 사용한다는 정도만 알아둡시다.
+# PCA를 적용한 train data의 classifier 훈련 : classifier 로 SVM을 사용한다는 정도만 알아둡시다.
 clf = svm.SVC(kernel = 'rbf', gamma = 0.5, C = 0.8) # 여기서는 classifier로 SVM을 사용한다
 clf.fit(pc, train_y) # train data로 classifier훈련
 
 # PCA를 적용하지 않은 original data의 SVM 훈련
 clf_orig = svm.SVC(kernel = 'rbf', gamma = 0.5, C = 0.8)
 clf_orig.fit(train_df, train_y)
-
 
 # 캔버스 도식
 fig = plt.figure()
@@ -352,5 +354,83 @@ pca_test_accuracy_dict
 orig_test_accuracy_dict = Counter(clf_orig.predict(test_df) == test_y)
 orig_test_accuracy_dict
 
-print("PCA 분석을 사용한 Test dataset accuracy: {}명/{}명 => {:.3f}".format(pca_test_accuracy_dict[True], sum(pca_test_accuracy_dict.value)))
-print("PCA를 적용하지 않은 Test dataset accuracy: {}명/{}명 => {:.3f}".format(orig_test_accuracy_dict[True], sum(orig_test_accuracy_dict.value
+print("PCA 분석을 사용한 Test dataset accuracy: {}명/{}명 => {:.3f}".format(pca_test_accuracy_dict[True],sum(pca_test_accuracy_dict.values()),(pca_test_accuracy_dict[True] / sum(pca_test_accuracy_dict.values()))))
+print("PCA를 적용하지 않은 Test dataset accuracy: {}명/{}명 => {:.3f}".format(orig_test_accuracy_dict[True], sum(orig_test_accuracy_dict.values()), orig_test_accuracy_dict[True] / sum(orig_test_accuracy_dict.values())))
+
+
+
+#####
+# T-SNE
+### 
+print('실행중입니다... 시간이 다소 걸릴 수 있어요. :) \n===')
+from sklearn.datasets import fetch_openml
+
+# 784px로 이루어진 mnist 이미지 데이터 호출
+mnist = fetch_openml('mnist_784', version = 1)
+
+X = mnist.data / 255.0
+y = mnist.target
+print('X shape : ', X.shape)
+print('Y shape : ', y.shape)
+
+n_image = X.shape[0]
+n_image_pixel = X.shape[1]
+
+pixel_columns = [f'pixel{i}' for i in range(n_image_pixel) ] # 픽셀 정보가 있는 columns의 이름을 담은 목록
+len(pixel_columns)
+
+import pandas as pd
+
+df = pd.DataFrame(X, columns = pixel_columns)
+df['y'] = y
+df['label'] = df['y'].apply(lambda i: str(i)) # 숫자 라벨을 스트링으로 만드는 람다 함수를 시행
+X, y = None, None
+
+import numpy as np
+
+# 결과 고정을 위해 seed 설정
+np.random.seed(30)
+
+# 이미지와 데이터 순서를 랜덤으로 뒤바꾼 배열 저장
+rndperm = np.random.permutation(n_image)
+
+# 랜덤으로 섞은 이미지 중 10,000개를 뽑아 df_subset에 담기
+n_image_sample = 10000
+random_idx = rndperm[:n_image_sample]
+df_subset = df.loc[rndperm[:n_image_sample],:].copy()
+df_subset.shape
+
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.gray()
+fig = plt.figure(figsize = (10, 6))
+n_img_sample = 15
+width, height = 28, 28
+
+# 15개 샘플 시각화
+for i in range(0, n_img_sample):
+    row = df_subset.iloc[i]
+    ax = fig.add_subplot(3, 5, i+1, title = f'Digit : {row["label"]}')
+    ax.matshow(row[pixel_columns]
+               .values.reshape((width, height))
+               .astype(float))
+plt.show()
+
+
+
+#####
+# PCA를 이용한 MNIST 차원축소
+###
+from sklearn.decomposition import _pca
+print('df_subset의 shape : {}'.format(df_subset.shape))
+
+n_dimension = 2 # 축소시킬 목표 차원 수
+pca = PCA(n_components = n_dimension)
+
+pca_result = pca.fit_transform(df_subset[pixel_columns].values) # 차원 축소 결과
+df_subset['pca-one'] = pca_result[:,0] # 축소한결과의 첫번째 차원값
+df_subset['pca-two'] = pca_result[:,1] # 축소한 결과의 두번째 차원값
+
+print('pca_result의 shape : {}'.format(pca_result.shape))
