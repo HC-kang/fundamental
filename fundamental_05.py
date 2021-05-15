@@ -380,7 +380,7 @@ pixel_columns = [f'pixel{i}' for i in range(n_image_pixel) ] # 픽셀 정보가 
 len(pixel_columns)
 
 import pandas as pd
-
+df
 df = pd.DataFrame(X, columns = pixel_columns)
 df['y'] = y
 df['label'] = df['y'].apply(lambda i: str(i)) # 숫자 라벨을 스트링으로 만드는 람다 함수를 시행
@@ -393,6 +393,8 @@ np.random.seed(30)
 
 # 이미지와 데이터 순서를 랜덤으로 뒤바꾼 배열 저장
 rndperm = np.random.permutation(n_image)
+rndperm
+df
 
 # 랜덤으로 섞은 이미지 중 10,000개를 뽑아 df_subset에 담기
 n_image_sample = 10000
@@ -429,8 +431,30 @@ print('df_subset의 shape : {}'.format(df_subset.shape))
 n_dimension = 2 # 축소시킬 목표 차원 수
 pca = PCA(n_components = n_dimension)
 
+df_subset['pixel0'] = 0.0
+df_subset
+
 pca_result = pca.fit_transform(df_subset[pixel_columns].values) # 차원 축소 결과
 df_subset['pca-one'] = pca_result[:,0] # 축소한결과의 첫번째 차원값
 df_subset['pca-two'] = pca_result[:,1] # 축소한 결과의 두번째 차원값
 
 print('pca_result의 shape : {}'.format(pca_result.shape))
+
+print(f'pca-1: {round(pca.explained_variance_ratio_[0], 3)*100}%')
+print(f'pca-2: {round(pca.explained_variance_ratio_[1], 3)*100}%')
+
+plt.figure(figsize = (10, 6))
+sns.scatterplot(
+        x='pca-one', y='pca-two',
+        hue='y',
+        palette = sns.color_palette('hls', 10),
+        data = df_subset,  # 2개의 PC축만 남은 데이터프레임 dt_subset 시각화
+        legend = 'full',
+        alpha = 0.4
+)
+
+
+#####
+# T_SNE 를 이용한 MNIST 차원 축소
+###
+
