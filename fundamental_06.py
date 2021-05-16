@@ -211,5 +211,155 @@ lbl, cnt = np.unique(clustering.labels_, return_counts = True)
 
 
 #####
-# 
+# Auto encoder
 ###
+import tensorflow as tf
+from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, LSTM, RepeatVector, TimeDistributed
+from tensorflow.keras.losses import Huber
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
+
+tf.random.set_seed(777)
+np.random.seed(777)
+
+### LSTM을 이용한 오토인코더 모델 만들기
+# 데이터 전처리
+from sklearn.preprocessing import StandardScaler
+
+# 데이터 전처리 - 하이퍼 파라미터
+window_size = 10
+batch_size = 32
+features = ['Open', 'High', 'Low', 'Close', 'Volume']
+n_features = len(features)
+TRAIN_SIZE = int(len(df)*0.7)
+
+# 데이터 전처리
+# 표준정규분포화합니다.
+
+scaler = StandardScaler()
+scaler = scaler.fit(df.loc[:TRAIN_SIZE, features].values)
+scaled = scaler.transform(df[features].values)
+
+# Keras TimeseriesGenerator 를 이용한 데이터셋 만들기
+train_gen = TimeseriesGenerator(
+    data = scaled,
+    targets = scaled,
+    length = window_size,
+    stride = 1,
+    sampling_rate = 1,
+    batch_size = batch_size,
+    shuffle = False,
+    start_index = 0,
+    end_index = None,
+)
+
+valid_gen = TimeseriesGenerator(
+    data = scaled,
+    targets = scaled,
+    length = window_size,
+    stride = 1, 
+    sampling_rate = 1,
+    batch_size = batch_size,
+    shuffle = False,
+    start_index = TRAIN_SIZE,
+    end_index = None,
+)
+
+print(train_gen[0][0].shape)
+print(train_gen[0][1].shape)
+
+
+# 모델 만들기
+model = Sequential([
+    # >> 인코더 시작
+    LSTM(64, activation = 'relu', return_sequences = True,
+         input_shape = (window_size, n_features)),
+    LSTM(16, activation = 'relu', return_sequences = False),
+    ## << 인코더 끝
+    ## >> Bottleneck
+    RepeatVector(window_size),
+    ## << Bottleneck
+    ## >> 디코더 시작
+    LSTM(16, activation = 'relu', return_sequences = True),
+    LSTM(64, activation = 'relu', return_sequences = False),
+    Dense(n_features)
+    ## << 디코더 끝
+])
+
+model.summary()
+
+# 체크포인트
+# 학습을 진행하며 validation 결과가 가장 좋은 모델을 저장해둠.
+import os
+
+checkpoint_path = '/Users/heechankang/projects/pythonworkspace/git_study/fundamental_node/anomaly_detection/kospi/mymodel.ckpt'
+checkpoint = ModelCheckpoint(checkpoint_path,
+                             save_weights_only = True,
+                             save_best_only = True,
+                             monitor='val_loss',
+                             verbose = 1)
+# 얼리스탑
+# 학습을 진행하며 validation 결과가 나빠지면 스톱. patience 횟수만큼은 참고 지켜본다
+early_stop = EarlyStopping(monitor = 'val_loss', patience = 5)
+model.compile(loss = 'mae', optimizer = 'adam', metrics = 'mae')
+hist = model.fit(train_gen,
+                 validation_data = valid_gen,
+                 steps_per_epoch = len(train_gen),
+                 validation_steps = len(valid_gen),
+                 epochs = 50,
+                 callbacks = [checkpoint, early_stop])
+
+model.load_weights(checkpoint_path)
+
+# 그래프로 확인
+fig = plt.figure(figsize = (12, 8))
+plt.plot(hist.history['loss'], label = 'Training')
+plt.plot(hist.history['val_loss'], label = 'Validation')
+plt.legend()
+
+# 예측 결과를 pred로, 실적 데이터를 real로 받습니다.
+pred = model.predict(train_gen)
+real = scaled[window_size:]
+
+mae_loss = np.mean(np.abs(pred-real), axis = 1)
+
+# 샘플 개수가 많으니 y축을 로그 스케일로 그리기
+fig, ax = plt.subplots(figsize=(9, 6))
+_ = plt.hist(mae_loss, 100, density=True, alpha = 0.75, log = True)
+
+
+
+
+import copy
+test_df = copy.deepcopy(df.loc[window_size:]).reset_index(drop = True)
+test_df['Loss'] = mae_loss
+
+threshold = 3
+test_df.loc[test_df.Loss > threshold]
+
+
+threshold = 0.3
+test_df.loc[test_df.Loss > threshold]
+
+# 그래프로 다시 확인
+fig = plt.figure(figsize = (12, 15))
+
+#가격들 그래프
+ax = fig.add_subplot(311)
+ax.set_title('Open/Close')
+plt.plot(test_df.Date, test_df.Close, linewidth = 0.5, alpha = 0.75, label = 'Close')
+plt.plot(test_df.Date, test_df.Open, linewidth = 0.5, alpha = 0.75, label = 'Open')
+plt.plot(test_df.Date, test_df.Close, 'or', markevery = [mae_loss > threshold])
+
+# 거래량 그래프
+ax = fig.add_subplot(312)
+ax.set_title('Volume')
+plt.plot(test_df.Date, test_df.Volume, linewidth = 0.5, alpha = 0.75, label = 'Volume')
+plt.plot(test_df.Date, test_df.Volume, 'or', markevery = [mae_loss > threshold])
+
+# 오차율 그래프
+ax = fig.add_subplot(313)
+ax.set_title('Loss')
+plt.plot(test_df.Date, test_df.Loss, linewidth = 0.5, alpha = 0.75, label = 'Loss')
+plt.plot(test_df.Date, test_df.Loss, 'or', markevery = [mae_loss > threshold])
