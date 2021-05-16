@@ -354,8 +354,15 @@ pca_test_accuracy_dict
 orig_test_accuracy_dict = Counter(clf_orig.predict(test_df) == test_y)
 orig_test_accuracy_dict
 
-print("PCA 분석을 사용한 Test dataset accuracy: {}명/{}명 => {:.3f}".format(pca_test_accuracy_dict[True],sum(pca_test_accuracy_dict.values()),(pca_test_accuracy_dict[True] / sum(pca_test_accuracy_dict.values()))))
-print("PCA를 적용하지 않은 Test dataset accuracy: {}명/{}명 => {:.3f}".format(orig_test_accuracy_dict[True], sum(orig_test_accuracy_dict.values()), orig_test_accuracy_dict[True] / sum(orig_test_accuracy_dict.values())))
+from sklearn.metrics import accuracy_score
+clf.accuracy_score
+
+print("PCA 분석을 사용한 Test dataset accuracy: {}명/{}명\n\
+         => {:.3f}".format(pca_test_accuracy_dict[True],sum(pca_test_accuracy_dict.values()),
+         (pca_test_accuracy_dict[True] / sum(pca_test_accuracy_dict.values()))))
+print("PCA를 적용하지 않은 Test dataset accuracy: {}명/{}명\n\
+         => {:.3f}".format(orig_test_accuracy_dict[True], sum(orig_test_accuracy_dict.values()),
+         orig_test_accuracy_dict[True] / sum(orig_test_accuracy_dict.values())))
 
 
 
@@ -380,8 +387,8 @@ pixel_columns = [f'pixel{i}' for i in range(n_image_pixel) ] # 픽셀 정보가 
 len(pixel_columns)
 
 import pandas as pd
-df
 df = pd.DataFrame(X, columns = pixel_columns)
+df
 df['y'] = y
 df['label'] = df['y'].apply(lambda i: str(i)) # 숫자 라벨을 스트링으로 만드는 람다 함수를 시행
 X, y = None, None
@@ -394,7 +401,8 @@ np.random.seed(30)
 # 이미지와 데이터 순서를 랜덤으로 뒤바꾼 배열 저장
 rndperm = np.random.permutation(n_image)
 rndperm
-df
+# df['pixel0'] = 0.0
+# df
 
 # 랜덤으로 섞은 이미지 중 10,000개를 뽑아 df_subset에 담기
 n_image_sample = 10000
@@ -457,4 +465,29 @@ sns.scatterplot(
 #####
 # T_SNE 를 이용한 MNIST 차원 축소
 ###
+from sklearn.manifold import TSNE
+
+print('df_subset 의 shape : {}'.format(df_subset.shape))
+
+data_subset = df_subset[pixel_columns].values
+n_dimension = 2
+tsne = TSNE(n_components = n_dimension)
+tsne_results = tsne.fit_transform(data_subset)
+
+print('tsne_results의 shape : {}'.format(tsne_results.shape))
+
+# tsne결과를 차원별로 추가
+df_subset['tsne-2d-one'] = tsne_results[:,0]
+df_subset['tsne-2d-two'] = tsne_results[:,1]
+
+# 시각화 해보기
+plt.figure(figsize = (10, 6))
+sns.scatterplot(
+        x = 'tsne-2d-one', y = 'tsne-2d-two',
+        hue = 'y',
+        palette = sns.color_palette('hls', 10),
+        data = df_subset,
+        legend = 'full',
+        alpha = 0.3
+)
 
