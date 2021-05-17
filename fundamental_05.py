@@ -354,8 +354,7 @@ pca_test_accuracy_dict
 orig_test_accuracy_dict = Counter(clf_orig.predict(test_df) == test_y)
 orig_test_accuracy_dict
 
-from sklearn.metrics import accuracy_score
-clf.accuracy_score
+
 
 print("PCA 분석을 사용한 Test dataset accuracy: {}명/{}명\n\
          => {:.3f}".format(pca_test_accuracy_dict[True],sum(pca_test_accuracy_dict.values()),
